@@ -9,7 +9,7 @@ namespace OrbitLauncher;
 internal sealed class GestureSelection
 {
     internal const int DwellMilliseconds=150;
-    internal const double ConfirmationDepth=28, Extension=88;
+    internal const double Extension=88;
     internal readonly record struct Stop(int Index,double X,double Y);
     readonly List<Stop> stops=new();
     readonly ReadOnlyCollection<Stop> stopView;
@@ -60,7 +60,9 @@ internal sealed class GestureSelection
         {
             Candidate=-1;Progress=0;
             // Going straight outside, or out through a different sector, cannot select it.
-            Confirmed=Armed>=0 && Hovered==Armed && distance>=radius+ConfirmationDepth;
+            // The whole outward sector confirms, starting at the ring edge.
+            // There is no separate button or extra radial target to aim for.
+            Confirmed=Armed>=0 && Hovered==Armed;
             if(Hovered!=Armed)Armed=-1;
         }
     }

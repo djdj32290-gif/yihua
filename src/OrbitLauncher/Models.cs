@@ -86,7 +86,6 @@ public static class RadialMath
         var angle = (Math.Atan2(dy, dx) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2);
         return (int)Math.Floor(angle / (Math.PI * 2 / count) + .5) % count;
     }
-    public static double ClampCenter(double value, double start, double end, double half) => end - start < half * 2 ? (start + end) / 2 : Math.Clamp(value, start + half, end - half);
 }
 
 // Pure state machine: native input is handled by InputHooks, UI by the controller.

@@ -26,6 +26,7 @@ internal sealed class RadialWindow : Window
     {
         Title="一划 · 轮盘"; WindowStyle=WindowStyle.None; ResizeMode=ResizeMode.NoResize;
         AllowsTransparency=true; Background=Brushes.Transparent; ShowInTaskbar=false; ShowActivated=false;
+        BorderThickness=new Thickness(0);FocusVisualStyle=null;
         Topmost=true; Focusable=false; Content=surface;
         dwellTimer=new DispatcherTimer(DispatcherPriority.Input){Interval=TimeSpan.FromMilliseconds(25)};
         dwellTimer.Tick+=(_,_)=> {if(tracking)UpdateSelection(surface.Gesture.X,surface.Gesture.Y);else dwellTimer.Stop();};
@@ -36,21 +37,34 @@ internal sealed class RadialWindow : Window
     public void OpenAt(int x,int y,Settings settings)
     {
         generation++; BeginAnimation(OpacityProperty,null); Opacity=1;
-        var (work,dpi)=Native.ScreenAt(x,y); scale=dpi;
-        var size=Math.Min(settings.Diameter+2*(GestureSelection.Extension+18),Math.Min(work.Right-work.Left,work.Bottom-work.Top)/scale);
+        scale=Native.ScreenAt(x,y).Scale;
+        double size=settings.Diameter+2*(GestureSelection.Extension+18);
+        centerX=x;centerY=y;
         Width=Height=size;
-        var half=size*scale/2;
-        centerX=RadialMath.ClampCenter(x,work.Left,work.Right,half);
-        centerY=RadialMath.ClampCenter(y,work.Top,work.Bottom,half);
         surface.Configure(settings.Copy());surface.Width=surface.Height=size;
         surface.Gesture.Begin(settings.Items.Count,surface.OuterRadius,settings.CancelRadius);
         tracking=true;
         surface.Selected=-1; surface.InvalidateVisual();
         Show();
-        Native.SetWindowPos(new WindowInteropHelper(this).Handle,new IntPtr(-1),(int)Math.Round(centerX-half),(int)Math.Round(centerY-half),(int)Math.Round(size*scale),(int)Math.Round(size*scale),0x10|0x40);
-        // Ask WPF to remeasure after its per-monitor DPI transition.
-        surface.Width=surface.Height=size;
+        PlaceAtOrigin(size);
+        // The actual HWND DPI is authoritative when the window crosses a monitor.
+        double actualScale=VisualTreeHelper.GetDpi(this).DpiScaleX;
+        if(Math.Abs(actualScale-scale)>.001){scale=actualScale;PlaceAtOrigin(size);}
+        surface.InvalidateMeasure();
         BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(95)));
+    }
+    internal static (int Left,int Top,int Pixels) AnchoredBounds(int x,int y,double size,double dpi)
+    {
+        // An even pixel extent keeps the physical centre exactly on the origin,
+        // including fractional scaling and negative coordinates on secondary monitors.
+        int half=(int)Math.Ceiling(size*dpi/2);
+        return(x-half,y-half,half*2);
+    }
+    void PlaceAtOrigin(double size)
+    {
+        var bounds=AnchoredBounds((int)centerX,(int)centerY,size,scale);
+        double dipSize=bounds.Pixels/scale;Width=Height=dipSize;surface.Width=surface.Height=dipSize;
+        Native.SetWindowPos(new WindowInteropHelper(this).Handle,new IntPtr(-1),bounds.Left,bounds.Top,bounds.Pixels,bounds.Pixels,0x10|0x40);
     }
     public void Track(int x,int y)
     {if(tracking)UpdateSelection((x-centerX)/scale,(y-centerY)/scale);}
@@ -88,7 +102,7 @@ public sealed class RadialSurface : FrameworkElement
     Point pressPoint,dragPoint;
     public RadialSurface()
     {
-        Focusable=true;
+        Focusable=true;FocusVisualStyle=null;
         MouseLeftButtonDown+=(_,e)=> {if(!EditorMode)return;Focus();EditorPointerDown(e.GetPosition(this));if(editorPressed)CaptureMouse();e.Handled=true;};
         MouseMove+=(_,e)=> {if(EditorMode)EditorPointerMove(e.GetPosition(this));};
         MouseLeave+=(_,_)=> {if(EditorMode && !editorPressed){Selected=-1;centerHovered=false;InvalidateVisual();}};
@@ -190,7 +204,7 @@ public sealed class RadialSurface : FrameworkElement
         else if(Gesture.Stops.Count>0)
         {
             DrawText(dc,$"已选 {Gesture.Stops.Count} 项",new Point(c,c-22),14,Text,Settings.CancelRadius*1.8,1);
-            DrawText(dc,Gesture.Confirmed?"松开全部打开":"向外拉以确认",new Point(c,c+2),11,Gesture.Confirmed?skin.Brush("AccentText"):Muted,Settings.CancelRadius*1.9,1);
+            DrawText(dc,Gesture.Confirmed?"松开全部打开":"拉出轮盘以确认",new Point(c,c+2),11,Gesture.Confirmed?skin.Brush("AccentText"):Muted,Settings.CancelRadius*1.9,1);
             DrawText(dc,Gesture.Confirmed?"释放前仍可返回":"圈内松开全部取消",new Point(c,c+23),8.5,Muted,Settings.CancelRadius*1.9,1);
         }
         else if(cancel && Selected<0)
@@ -220,18 +234,13 @@ public sealed class RadialSurface : FrameworkElement
             double a=-Math.PI/2+armed*2*Math.PI/count,half=Math.PI/count;
             var color=palettes[armed].Accent.Color;
             var gradient=new RadialGradientBrush();
-            gradient.GradientStops.Add(new GradientStop(Color.FromArgb(150,color.R,color.G,color.B),0));
-            gradient.GradientStops.Add(new GradientStop(Color.FromArgb(150,color.R,color.G,color.B),outer/(outer+GestureSelection.Extension)));
-            gradient.GradientStops.Add(new GradientStop(Color.FromArgb(Gesture.Confirmed?(byte)180:(byte)75,color.R,color.G,color.B),(outer+44)/(outer+GestureSelection.Extension)));
+            byte opacity=Gesture.Confirmed?(byte)180:(byte)120;
+            gradient.GradientStops.Add(new GradientStop(Color.FromArgb(opacity,color.R,color.G,color.B),0));
+            gradient.GradientStops.Add(new GradientStop(Color.FromArgb(opacity,color.R,color.G,color.B),outer/(outer+GestureSelection.Extension)));
             gradient.GradientStops.Add(new GradientStop(Color.FromArgb(0,color.R,color.G,color.B),1));
-            dc.PushClip(Wedge(center,outer-5,outer+GestureSelection.Extension,a-half,a+half));
+            dc.PushClip(Wedge(center,outer,outer+GestureSelection.Extension,a-half,a+half));
             dc.DrawEllipse(gradient,null,center,outer+GestureSelection.Extension,outer+GestureSelection.Extension);
             dc.Pop();
-            double r=outer+GestureSelection.ConfirmationDepth;
-            dc.DrawGeometry(null,new Pen(Brush(color.R,color.G,color.B,200),1.5){DashStyle=DashStyles.Dash},Wedge(center,r,r+1,a-half*.9,a+half*.9));
-            var label=At(center,outer+53,a);
-            dc.DrawRoundedRectangle(skin.Brush("WheelConfirm"),new Pen(Brush(color.R,color.G,color.B,180),1),new Rect(label.X-41,label.Y-13,82,26),13,13);
-            DrawText(dc,Gesture.Confirmed?$"打开 {Gesture.Stops.Count} 项":"拉到此处确认",new Point(label.X,label.Y-7),10,Brush(color.R,color.G,color.B),78,1);
         }
         if(Gesture.Stops.Count==0 && Gesture.Candidate<0)return;
         var path=new StreamGeometry();

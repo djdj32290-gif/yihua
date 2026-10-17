@@ -55,6 +55,7 @@ internal static partial class SelfTests
             Check(!controller.WheelVisible && controller.LaunchAttempts==launches && controller.GesturePhase==GesturePhase.Idle,"GameBecomingForegroundBeforeReleaseCancelsLaunch");
             controller.TestProtection(null);controller.TestModifierUp();controller.Config.GameModeEnabled=originalGameMode;controller.Apply();
             await VerifyMultiGesture(controller,Path.GetDirectoryName(report)!,Check);
+            await VerifyEdgeGestures(controller,Path.GetDirectoryName(report)!,Check);
             results["GestureChecksPassed"]=true;
             results["Success"]=controller.TrayRegistered && controller.TrayLocated;
             controller.TestTrayExit();
@@ -92,15 +93,15 @@ internal static partial class SelfTests
                 app.Dispatcher.BeginInvoke(()=> {try {action(app.Windows.OfType<ItemEditorWindow>().Single());}catch(Exception ex){error=ex;foreach(var editor in app.Windows.OfType<ItemEditorWindow>().ToArray())editor.Close();}});
                 preview.EditorPointerDown(point);preview.EditorPointerUp(point);if(error!=null)throw error;
             }
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"设置页-1.3.1.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"设置页-1.3.2.png"));
             var headerTabs=(TabControl)window.FindName("SettingsTabs");
             for(int tabIndex=0;tabIndex<headerTabs.Items.Count;tabIndex++)
             {
                 headerTabs.SelectedIndex=tabIndex;var tab=(TabItem)headerTabs.Items[tabIndex];tab.Focus();await Task.Delay(80);window.UpdateLayout();
-                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,$"标签{tabIndex}-1.3.1.png"));
+                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,$"标签{tabIndex}-1.3.2.png"));
                 Check(RoundedTabCorners(tab),$"SelectedFocusedTab{tabIndex}HasFourRoundedCorners");
             }
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"标签焦点-1.3.1.png"));headerTabs.SelectedIndex=0;window.UpdateLayout();
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"标签焦点-1.3.2.png"));headerTabs.SelectedIndex=0;window.UpdateLayout();
             await VerifyThemes(controller,window,preview,Path.GetDirectoryName(report)!,Check);
             await VerifyRunningApplications(controller,window,Path.GetDirectoryName(report)!,Check);
             VerifyBatchDelete(controller,window,preview,Path.GetDirectoryName(report)!,Check);
@@ -111,7 +112,7 @@ internal static partial class SelfTests
                 var next=new Point(center.X+Math.Cos(angle)*radius,center.Y+Math.Sin(angle)*radius);
                 var first=controller.Config.Items[0];var secondItem=controller.Config.Items[1];
                 preview.EditorPointerDown(top);preview.EditorPointerMove(next);
-                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"拖动交换-1.3.1.png"));preview.EditorPointerUp(next);
+                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"拖动交换-1.3.2.png"));preview.EditorPointerUp(next);
                 Check(ReferenceEquals(controller.Config.Items[0],secondItem) && ReferenceEquals(controller.Config.Items[1],first),"DragSwapsExactlyTwoItems");
                 Check(!app.Windows.OfType<ItemEditorWindow>().Any(),"DragDoesNotOpenEditor");
                 Check(new ConfigStore().Load().Items[0].Name==secondItem.Name,"DragSwapSavedToDisk");
@@ -142,14 +143,14 @@ internal static partial class SelfTests
                 Edit(top,editor=> {((TextBox)editor.FindName("NameBox")).Text="未保存草稿";editor.Close();});
                 Check(controller.Config.Items[0].Name==name,"CancelEditPreservesOriginal");
                 Edit(top,editor=> {
-                    editor.UpdateLayout();SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"选项详情-1.3.1.png"));
+                    editor.UpdateLayout();SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"选项详情-1.3.2.png"));
                     var form=(FrameworkElement)editor.FindName("EditorForm");var testButton=(Button)editor.FindName("TestItemButton");
                     Check(form.Parent is Grid,"EditorFormHasNoOuterScrollViewer");
                     editor.Width=editor.MinWidth;editor.Height=editor.MinHeight;
                     var status=(TextBlock)editor.FindName("EditorStatus");status.Text=new string('测',120);editor.UpdateLayout();
                     Check(testButton.TranslatePoint(new Point(0,testButton.ActualHeight),form).Y<=form.ActualHeight+.5,"AllEditorFieldsFitAtMinimumSizeWithValidationMessage");
                     var runningButton=(Button)editor.FindName("RunningAppsButton");Check(runningButton.TranslatePoint(new Point(runningButton.ActualWidth,0),form).X<=form.ActualWidth+.5,"RunningProgramBrowseButtonFitsMinimumEditorWidth");
-                    SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"紧凑选项详情-1.3.1.png"));
+                    SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"紧凑选项详情-1.3.2.png"));
                     ((TextBox)editor.FindName("NameBox")).Text="中文编辑保存验证";Check(editor.SaveItem(),"ExistingItemSaves");});
                 Check(new ConfigStore().Load().Items[0].Name=="中文编辑保存验证","EditedNameReadback");
                 Edit(top,editor=> {((TextBox)editor.FindName("NameBox")).Text=name;Check(editor.SaveItem(),"RestoreEditedName");});
@@ -182,15 +183,15 @@ internal static partial class SelfTests
             blocked.SelectedItem=blocked.Items.Cast<ForegroundGuard.ApplicationWindow>().Single(x=>x.Name==appItem.Name);((Button)window.FindName("RemoveAppButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(new ConfigStore().Load().BlockedApplications.SequenceEqual(original.BlockedApplications),"RemoveProtectedApplicationRestoresList");
             Check(running.Items.Cast<ForegroundGuard.ApplicationWindow>().Any(x=>x.Name==appItem.Name),"RemovingRuleReturnsRunningApplicationToLeft");
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"游戏保护-1.3.1.png"));tabs.SelectedIndex=1;await Task.Delay(100);
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"游戏保护-1.3.2.png"));tabs.SelectedIndex=1;await Task.Delay(100);
             var size=(Slider)window.FindName("SizeSlider");size.Value=original.Diameter==680?670:original.Diameter+10;await Task.Delay(500);
             Check(new ConfigStore().Load().Diameter==(int)size.Value,"GlobalAppearanceSavesIndependently");
             Check(controller.Config.Items.Count==count,"GlobalChangeDoesNotChangeItems");size.Value=original.Diameter;window.Flush();
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"全局设置-1.3.1.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"全局设置-1.3.2.png"));
             window.Width=760;window.Height=640;await Task.Delay(100);
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑全局设置-1.3.1.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑全局设置-1.3.2.png"));
             tabs.SelectedIndex=0;await Task.Delay(100);
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑设置页-1.3.1.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑设置页-1.3.2.png"));
             ((Button)window.FindName("SaveCloseButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(controller.TrayVisible && !app.Windows.OfType<SettingsWindow>().Any(),"SaveCloseKeepsTray");
             controller.ShowSettings();Check(app.Windows.OfType<SettingsWindow>().Single().IsVisible,"SettingsReopen");
@@ -305,9 +306,7 @@ internal static partial class SelfTests
             Check(RadialMath.Select(0,0,58,8)==-1,"中心取消");
             Check(RadialMath.Select(58,0,58,8)==-1,"取消半径边界");
             Check(RadialMath.Select(100,0,58,0)==-1,"空配置取消");
-            Check(RadialMath.ClampCenter(-1900,-1920,0,226)==-1694,"负坐标屏幕边缘调整");
-            Check(RadialMath.ClampCenter(1900,0,1920,226)==1694,"右屏幕边缘调整");
-            Check(RadialMath.ClampCenter(20,0,300,226)==150,"小屏幕居中");
+            VerifyConfirmationAreaAndPlacement(Check);
             var g=new GestureMachine();
             foreach(int count in new[]{1,8,9,16}){Check(ContinuousRing(count),$"{count} 项编辑彩色外圈 1440 个采样点连续无暗缝");Check(ContinuousRing(count,false),$"{count} 项手势彩色外圈 1440 个采样点连续无暗缝");}
             Check(ItemAppearance.Classify("https://example.com/")==LaunchKind.Web && ItemAppearance.Classify("saved.url")==LaunchKind.Web,"网页和 URL 快捷文件使用网页配色");
