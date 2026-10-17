@@ -40,6 +40,7 @@ internal sealed class GestureSelection
     }
     void UpdateCore(double x,double y,long now)
     {
+        double previousX=X,previousY=Y;
         X=x;Y=y;double distance=Math.Sqrt(x*x+y*y);
         Hovered=RadialMath.Select(x,y,cancel,count);
         Confirmed=false;
@@ -58,8 +59,20 @@ internal sealed class GestureSelection
         }
         else
         {
+            // A first outward stroke can cross the whole ring between two samples,
+            // or before its opening animation finishes. Infer that first choice
+            // from the current ray; subsequent batch additions still require dwell.
+            if(stops.Count==0)
+            {
+                double previousDistance=Math.Sqrt(previousX*previousX+previousY*previousY);
+                bool usePrevious=previousDistance>cancel && previousDistance<=radius && RadialMath.Select(previousX,previousY,cancel,count)==Hovered;
+                double stopRadius=(cancel+radius)/2;
+                stops.Add(new Stop(Hovered,usePrevious?previousX:x/distance*stopRadius,usePrevious?previousY:y/distance*stopRadius));
+                selectedMask|=(ushort)(1<<Hovered);Armed=Hovered;
+            }
             Candidate=-1;Progress=0;
-            // Going straight outside, or out through a different sector, cannot select it.
+            // Once an entry is selected, leaving through a different unarmed
+            // sector cannot silently add it to the batch.
             // The whole outward sector confirms, starting at the ring edge.
             // There is no separate button or extra radial target to aim for.
             Confirmed=Armed>=0 && Hovered==Armed;

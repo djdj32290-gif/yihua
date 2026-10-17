@@ -43,7 +43,7 @@ internal static partial class SelfTests
         check(s.Stops.Count==1,"重复经过同一选项只加入一次");
         s.Update(-250,0,330);check(!s.Confirmed && s.Release(true).Length==0,"从另一个方向出圈不能确认之前的选项");
         s.Begin(8,209,58);s.Update(250,0,0);s.Update(250,0,300);
-        check(!s.Confirmed && s.Release(true).Length==0,"直接拉到圈外没有选择不能打开");
+        check(s.Confirmed && s.Release(true).SequenceEqual(new[]{2}),"首次快速越过轮盘直接选中对应方向");
         s.Begin(8,209,58);s.Update(140,0,0);s.Update(140,0,150);s.Update(250,0,160);
         check(s.Release(false).Length==0 && s.Stops.Count==0,"已进入确认区仍可被 Esc 或修饰键取消");
         s.Begin(0,209,58);s.Update(250,0,300);check(s.Release(true).Length==0,"空轮盘不能确认");
@@ -81,7 +81,7 @@ internal static partial class SelfTests
                 var source=new Point(preview.ActualWidth/2,24);var target=new Point(preview.ActualWidth-24,preview.ActualHeight/2);
                 preview.EditorPointerDown(source);preview.EditorPointerMove(target);preview.EditorPointerUp(target);
                 check(controller.Config.Items.SequenceEqual(original),"删除模式拖动不会交换或修改选项");
-                SaveVisual(window,Path.Combine(folder,"批量删除-1.3.2.png"));
+                SaveVisual(window,Path.Combine(folder,"批量删除-1.3.3.png"));
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 check(!preview.DeleteMode && controller.Config.Items.SequenceEqual(original),"退出删除模式保留所有配置");
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Click(0);Click(original.Count-1);
@@ -117,14 +117,14 @@ internal static partial class SelfTests
             await Start();await Select(-radius,0);Point(0,0);await Task.Delay(35);await Select(radius,0);
             check(launched.Count==0 && controller.TestWheel.Selection.Stops.Select(s=>s.Index).SequenceEqual(new[]{6,2}),"HoldingLeftThenRightCollectsWithoutAnyEarlyLaunch");
             check(!controller.TestWheel.DwellTimerRunning,"StableSelectionStopsDwellTimerWithoutEndingGesture");
-            SaveVisual(controller.TestWheel,Path.Combine(folder,"多选路径-1.3.2.png"));
+            SaveVisual(controller.TestWheel,Path.Combine(folder,"多选路径-1.3.3.png"));
             Point(radius,0,0x202);await Task.Delay(160);controller.TestModifierUp();
             check(launched.Count==0 && controller.TestWheel.Selection.Stops.Count==0,"ReleaseInsideLastSectorCancelsEveryEntryAndPath");
             await Start();await Select(-radius,0);Point(0,0);await Task.Delay(35);await Select(radius,0);
             double outside=controller.TestWheel.Surface.OuterRadius+50;Point(outside,0);await Task.Delay(50);
             check(controller.TestWheel.Selection.Confirmed,"LastSectorOuterExtensionArmsBatch");
             check(!controller.TestWheel.DwellTimerRunning,"OuterConfirmationDoesNotKeepDwellTimerRunning");
-            SaveVisual(controller.TestWheel,Path.Combine(folder,"外拉确认-1.3.2.png"));
+            SaveVisual(controller.TestWheel,Path.Combine(folder,"外拉确认-1.3.3.png"));
             Point(outside,0,0x202);await Task.Delay(160);controller.TestModifierUp();
             check(launched.SequenceEqual(new[]{controller.Config.Items[6].Name,controller.Config.Items[2].Name}),"ConfirmedReleaseDispatchesBothEntriesInSelectionOrder");launched.Clear();
             await Start();await Select(radius,0);Point(outside,0);await Task.Delay(40);controller.TestEscape();await Task.Delay(80);Point(outside,0,0x202);await Task.Delay(120);controller.TestModifierUp();
@@ -138,7 +138,7 @@ internal static partial class SelfTests
             await Start();await Select(radius,0);Point(outside,0);await Task.Delay(40);controller.TestProtection("游戏保护：确认前切入游戏");Point(outside,0,0x202);await Task.Delay(150);controller.TestModifierUp();
             check(launched.Count==0,"GameProtectionCancelsEvenAnArmedBatch");controller.TestProtection(null);
             await Start();Point(-outside,0,0x202);await Task.Delay(150);controller.TestModifierUp();
-            check(launched.Count==0,"DirectOutsideReleaseWithoutDwellCannotLaunch");
+            check(launched.SequenceEqual(new[]{controller.Config.Items[6].Name}),"FirstFastOutsideReleaseSelectsCurrentDirectionWithoutDwell");launched.Clear();
             await Start();await Select(radius,0);Point(-outside,0,0x202);await Task.Delay(150);controller.TestModifierUp();
             check(launched.Count==0,"ReleaseThroughUnselectedOppositeDirectionCannotLaunch");
         }

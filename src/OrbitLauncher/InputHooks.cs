@@ -17,12 +17,13 @@ internal sealed class InputHooks : IDisposable
     readonly GestureMachine machine=new();
     readonly ModifierState modifiers=new();
     Settings config;
-    bool disposed,moveQueued,escapeCaptured,simulatedInput;
+    bool disposed,escapeCaptured,simulatedInput;
     volatile bool paused;
     volatile bool released;
     internal volatile bool TestMode;
     string? testProtectionReason,lastProtectionReason;
-    int latestX,latestY;
+    sealed class MoveBatch { internal int X,Y;internal bool Queued; }
+    MoveBatch moves=new();
     double threshold;
     long keyboardEvents,mouseEvents,desktopEvents,begunGestures;
     volatile bool leftButtonHeld;
@@ -73,8 +74,8 @@ internal sealed class InputHooks : IDisposable
         // Only one queued move at a time, even with a 1000 Hz mouse.
         lock(machine)
         {
-            latestX=x; latestY=y; if(moveQueued)return; moveQueued=true;
-            Queue(()=> { int px,py; lock(machine) { px=latestX;py=latestY;moveQueued=false; } Moved?.Invoke(px,py); });
+            var batch=moves;batch.X=x;batch.Y=y;if(batch.Queued)return;batch.Queued=true;
+            Queue(()=> { int px,py; lock(machine) { px=batch.X;py=batch.Y;batch.Queued=false; } Moved?.Invoke(px,py); });
         }
     }
     IntPtr Mouse(int code,IntPtr w,IntPtr l)
@@ -116,6 +117,9 @@ internal sealed class InputHooks : IDisposable
                 var blocked=ProtectionReason(point);if(blocked!=null){CancelForProtection(blocked);return new(true);}
                 Interlocked.Increment(ref begunGestures);lastSignal="已超过阈值，显示轮盘";
                 MaskMenu();
+                // Queued positions belong to this gesture, even if another drag
+                // starts before WPF has processed the previous release.
+                lock(machine)moves=new MoveBatch();
                 var ox=machine.OriginX;var oy=machine.OriginY;
                 Queue(()=> { Began?.Invoke(ox,oy);Moved?.Invoke(point.X,point.Y); });break;
             case GestureAction.Update:MoveOnUi(point.X,point.Y);break;
@@ -176,6 +180,7 @@ internal sealed class InputHooks : IDisposable
     }
     // In-process integration tests use the same handlers, without synthesizing OS input.
     internal GestureResult TestPointer(int message,int x,int y)=>worker.Invoke(()=>ProcessPointer(message,new Native.POINT(x,y),null,true));
+    internal void TestPointerBurst((int Message,int X,int Y)[] events)=>worker.Invoke(()=>{foreach(var e in events)ProcessPointer(e.Message,new Native.POINT(e.X,e.Y),null,true);});
     internal void TestModifierDown()=>worker.Invoke(()=>ProcessKey((uint)ModifierKey,false));
     internal void TestModifierUp()=>worker.Invoke(()=>ProcessKey((uint)ModifierKey,true));
     internal void TestEscape()=>worker.Invoke(()=> { ProcessKey(0x1B,false);ProcessKey(0x1B,true); });

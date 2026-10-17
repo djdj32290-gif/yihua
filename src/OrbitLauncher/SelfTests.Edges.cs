@@ -74,7 +74,7 @@ internal static partial class SelfTests
                 int x=(int)Math.Round(point.X+radius*Math.Cos(angle)*place.Scale),y=(int)Math.Round(point.Y+radius*Math.Sin(angle)*place.Scale);
                 controller.TestPointer(0x200,x,y);await Task.Delay(40);
                 check(wheel.Selection.Confirmed,$"Edge{point}NearEdgeOfWholeConfirmationAreaArms");
-                if(point.Y==work.Bottom-2)SaveVisual(wheel,Path.Combine(folder,"任务栏边缘-1.3.2.png"));
+                if(point.Y==work.Bottom-2)SaveVisual(wheel,Path.Combine(folder,"任务栏边缘-1.3.3.png"));
                 controller.TestPointer(0x202,x,y);await Task.Delay(110);controller.TestModifierUp();
                 check(launched.SequenceEqual(new[]{controller.Config.Items[selectedIndex].Name}),$"Edge{point}ConfirmedReleaseDispatchesExactlyOnce");launched.Clear();
             }

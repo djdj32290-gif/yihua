@@ -49,6 +49,7 @@ public sealed class AppController : IDisposable
     internal void TestProtection(string? reason)=>hooks.TestProtection(reason);
     internal void TestModifierDown()=>hooks.TestModifierDown();
     internal GestureResult TestPointer(int message,int x,int y)=>hooks.TestPointer(message,x,y);
+    internal void TestPointerBurst(params (int Message,int X,int Y)[] events)=>hooks.TestPointerBurst(events);
     internal bool InputResourcesReleased=>hooks.ResourcesReleased;
     internal void TestTrayExit()=>tray.Execute(TrayIcon.ExitCommand);
     public bool Paused { get=>hooks.Paused; set { hooks.Paused=value; if(value)hooks.Cancel(); UpdateTray();settingsWindow?.RefreshChecks(); } }

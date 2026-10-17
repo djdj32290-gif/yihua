@@ -216,7 +216,7 @@ public sealed class RadialSurface : FrameworkElement
         else
         {
             DrawText(dc,Settings.Items[Selected].Name,new Point(c,c-14),13,Text,Settings.CancelRadius*1.75,2);
-            DrawText(dc,"短暂停留以选择",new Point(c,c+25),10,Accent,100,1);
+            DrawText(dc,"继续外拉确认",new Point(c,c+25),10,Accent,100,1);
         }
         if(EditorMode && editorDragging && dragSource>=0 && dragSource<icons.Count)
         {
