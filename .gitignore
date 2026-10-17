@@ -1,0 +1,17 @@
+/.tools/
+**/bin/
+**/obj/
+/deliverables/
+.build/
+/work/
+/outputs/
+/verification/
+**/Data/
+**/settings.json
+*.zip
+*.user
+*.suo
+.vs/
+.DS_Store
+Thumbs.db
+Desktop.ini

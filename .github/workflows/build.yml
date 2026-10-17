@@ -1,0 +1,34 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build portable application
+        shell: pwsh
+        run: ./build.ps1
+      - name: Run foundation checks
+        shell: pwsh
+        run: |
+          . ./src/BuildEnvironment.ps1
+          New-Item -ItemType Directory -Path work/ci -Force | Out-Null
+          $report = Join-Path $PWD 'work/ci/self-test.json'
+          $exe = Join-Path $PWD 'deliverables/一划便携版/一划.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--self-test', $report -Wait -PassThru -WindowStyle Hidden
+          $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if ($process.ExitCode -ne 0 -or !$result.Success) { throw 'Foundation checks failed' }
+          Write-Host "$($result.Count) checks passed"

@@ -1,0 +1,22 @@
+<Window x:Class="OrbitLauncher.ItemEditorWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:OrbitLauncher"
+ Title="选项详情" Width="610" Height="700" MinWidth="560" MinHeight="680" WindowStartupLocation="CenterOwner" Background="{DynamicResource Theme.Window}" Foreground="{DynamicResource Theme.TextStrong}" FontFamily="Microsoft YaHei UI" FontSize="13" ShowInTaskbar="False">
+ <Window.Resources>
+  <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Theme.Text}"/></Style>
+  <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}"><Setter Property="Margin" Value="0,6,0,12"/><Setter Property="Padding" Value="11,8"/><Setter Property="Height" Value="36"/></Style>
+  <Style TargetType="Button" BasedOn="{StaticResource ModernButton}"><Setter Property="Padding" Value="14,8"/></Style>
+ </Window.Resources>
+ <Grid Margin="26,20"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock x:Name="EditorHeading" Text="选项详情" FontSize="23" FontWeight="SemiBold"/><TextBlock Text="为这个方向，放一个常用入口。" Foreground="{DynamicResource Theme.Muted}" Margin="0,7,0,0" TextWrapping="Wrap"/></StackPanel><Image Grid.Column="1" Source="{x:Static local:Branding.Logo}" Width="44" Height="44" VerticalAlignment="Center"/></Grid>
+  <StackPanel x:Name="EditorForm" Grid.Row="1">
+   <TextBlock Text="显示名称"/><TextBox x:Name="NameBox"/>
+   <TextBlock Text="目标路径 / 网址"/><TextBox x:Name="TargetBox"/>
+   <StackPanel Orientation="Horizontal" Margin="0,0,0,14"><Button Content="选择文件 / 应用" Click="BrowseFile_Click" Margin="0,0,8,0"/><Button Content="选择文件夹" Click="BrowseFolder_Click" Margin="0,0,8,0"/><Button x:Name="RunningAppsButton" Content="运行中的程序" Click="BrowseRunning_Click"/></StackPanel>
+   <TextBlock Text="启动参数（可选）"/><TextBox x:Name="ArgsBox"/>
+   <TextBlock Text="工作目录（可选）"/><DockPanel><Button Content="浏览" DockPanel.Dock="Right" VerticalAlignment="Top" Margin="8,6,0,0" Click="BrowseWork_Click"/><TextBox x:Name="WorkBox"/></DockPanel>
+   <DockPanel Margin="0,2,0,12"><TextBlock Text="轮盘顺序" VerticalAlignment="Center"/><ComboBox x:Name="PositionBox" Width="180" HorizontalAlignment="Right"/></DockPanel>
+   <Button x:Name="TestItemButton" Content="测试打开此选项" HorizontalAlignment="Left" Click="Test_Click"/>
+  </StackPanel>
+  <TextBlock x:Name="EditorStatus" Grid.Row="2" Foreground="{DynamicResource Theme.Validation}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" LineHeight="18" LineStackingStrategy="BlockLineHeight" MaxHeight="36" ToolTip="{Binding Text,RelativeSource={RelativeSource Self}}" Margin="0,10,0,10"/>
+  <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Button x:Name="DeleteButton" Content="删除选项" HorizontalAlignment="Left" Click="Delete_Click" Foreground="{DynamicResource Theme.DangerText}"/><Button Grid.Column="1" Content="取消" IsCancel="True" Click="Cancel_Click" Margin="0,0,10,0"/><Button x:Name="SaveItemButton" Grid.Column="2" Content="保存选项" IsDefault="True" Click="Save_Click" Background="{DynamicResource Theme.Accent}" Foreground="{DynamicResource Theme.OnAccent}" BorderBrush="{DynamicResource Theme.AccentHover}" FontWeight="SemiBold"/></Grid>
+ </Grid>
+</Window>
