@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -14,6 +15,8 @@ public sealed class AppController : IDisposable
     readonly InputHooks hooks;
     readonly TrayIcon tray;
     readonly DispatcherTimer previewTimer;
+    readonly DispatcherTimer runtimeTimer;
+    readonly Queue<object> runtimeHistory=new();
     SettingsWindow? settingsWindow;
     bool disposed;
     LaunchItem[] activeItems=Array.Empty<LaunchItem>();
@@ -28,14 +31,26 @@ public sealed class AppController : IDisposable
     internal bool TrayHasExit=>tray.HasExitMenuItem();
     internal bool TrayRemoved=>tray.Removed;
     internal string InputStatus=>$"运行权限：{ProcessIntegrity.Label}\n"+hooks.StatusText;
-    internal string TrayStatus=>tray.IsRegistered?(tray.CanLocateIcon()?"系统托盘：已注册（图标可能被收进任务栏 ^）":"系统托盘：注册返回成功，但未查询到图标位置"):$"系统托盘：注册失败，错误 {tray.RegistrationError}";
+    internal string TrayStatus=>tray.IsRegistered?(tray.CanLocateIcon()?"系统托盘：已注册（图标可能被收进任务栏 ^）":"系统托盘：注册返回成功，但未查询到图标位置"):$"系统托盘：注册失败，参考信息 {tray.RegistrationError}";
+    object RuntimeSnapshot()=>new {CollectedUtc=DateTime.UtcNow.ToString("O"),Version=typeof(Program).Assembly.GetName().Version?.ToString(),OperatingSystem=Environment.OSVersion.VersionString,ProcessId=Environment.ProcessId,ProcessPath=Environment.ProcessPath,IntegrityLevel=ProcessIntegrity.Level,IntegrityLabel=ProcessIntegrity.Label,TrayRegistered=tray.IsRegistered,TrayLocated=tray.IsRegistered&&tray.CanLocateIcon(),TrayError=tray.RegistrationError,TrayRegistrationAttempts=tray.RegistrationAttempts,ItemCount=Config.Items.Count,Modifier=Config.Modifier,Foreground=ForegroundGuard.CaptureForeground(),Input=hooks.Snapshot};
     internal void SaveRuntimeStatus()
     {
-        try { File.WriteAllText(Path.Combine(Path.GetDirectoryName(store.FilePath)!,"runtime-status.json"),JsonSerializer.Serialize(new {Version=typeof(Program).Assembly.GetName().Version?.ToString(),ProcessId=Environment.ProcessId,ProcessPath=Environment.ProcessPath,IntegrityLevel=ProcessIntegrity.Level,TrayRegistered=tray.IsRegistered,TrayLocated=tray.IsRegistered&&tray.CanLocateIcon(),TrayError=tray.RegistrationError,Input=hooks.Snapshot},new JsonSerializerOptions {WriteIndented=true})); }catch { }
+        try { var sample=RuntimeSnapshot();runtimeHistory.Enqueue(sample);while(runtimeHistory.Count>20)runtimeHistory.Dequeue();File.WriteAllText(Path.Combine(Path.GetDirectoryName(store.FilePath)!,"runtime-status.json"),JsonSerializer.Serialize(sample,new JsonSerializerOptions {WriteIndented=true})); }catch { }
+    }
+    internal string ExportDiagnostics()
+    {
+        SaveRuntimeStatus();var path=Path.Combine(Path.GetDirectoryName(store.FilePath)!,"一划诊断.json");
+        File.WriteAllText(path,JsonSerializer.Serialize(new {Current=RuntimeSnapshot(),RecentRuntime=runtimeHistory.ToArray()},new JsonSerializerOptions{WriteIndented=true}));return path;
     }
     internal bool WheelVisible=>radial.IsVisible;
     internal GesturePhase GesturePhase=>hooks.Phase;
     internal int LaunchAttempts { get; private set; }
+    internal bool NativeInputTesting {get;set;}
+    internal object InputSnapshot=>hooks.Snapshot;
+    internal void TestDisconnectMouseHook()=>hooks.TestDisconnectMouseHook();
+    internal void TestDisconnectKeyboardHook()=>hooks.TestDisconnectKeyboardHook();
+    internal void TestStaleRightAltDown()=>hooks.TestStaleRightAltDown();
+    internal void TestUnavailableAsyncState()=>hooks.TestUnavailableAsyncState();
     internal Action<LaunchItem>? TestLaunch {get;set;}
     internal RadialWindow TestWheel=>radial;
     internal (int X,int Y) TestHoldStart()
@@ -53,16 +68,19 @@ public sealed class AppController : IDisposable
     internal bool InputResourcesReleased=>hooks.ResourcesReleased;
     internal void TestTrayExit()=>tray.Execute(TrayIcon.ExitCommand);
     public bool Paused { get=>hooks.Paused; set { hooks.Paused=value; if(value)hooks.Cancel(); UpdateTray();settingsWindow?.RefreshChecks(); } }
-    public AppController(Application app)
+    public AppController(Application app):this(app,false) { }
+    internal AppController(Application app,bool simulateTrayRegistrationFailure)
     {
         this.app=app; HasConfig=File.Exists(store.FilePath); Config=store.Load();Themes.Apply(Config.Theme);radial.Prepare(Config);
         hooks=new InputHooks(()=>Config,app.Dispatcher);
         hooks.Began+=(x,y)=> { previewTimer?.Stop(); activeItems=Config.Items.Select(i=>i.Copy()).ToArray(); radial.OpenAt(x,y,Config); };
         hooks.Moved+=(x,y)=>radial.Track(x,y);
         hooks.Ended+=commit=> { var indices=radial.Finish(commit);var items=indices.Where(i=>i>=0 && i<activeItems.Length).Select(i=>activeItems[i]).ToArray();radial.Dismiss();activeItems=Array.Empty<LaunchItem>();foreach(var item in items)Launch(item); };
-        tray=new TrayIcon(TrayCommand,()=>Paused,()=>StartupService.Enabled);
+        tray=new TrayIcon(TrayCommand,()=>Paused,()=>StartupService.Enabled,simulateTrayRegistrationFailure);
         UpdateTray();
         previewTimer=new DispatcherTimer { Interval=TimeSpan.FromSeconds(3) }; previewTimer.Tick+=(_,_)=> { previewTimer.Stop(); if(!hooks.Busy)radial.Dismiss(); };
+        runtimeTimer=new DispatcherTimer(DispatcherPriority.Background){Interval=TimeSpan.FromSeconds(3)};
+        runtimeTimer.Tick+=(_,_)=>SaveRuntimeStatus();runtimeTimer.Start();
         if(!HasConfig)store.Save(Config);
         SaveRuntimeStatus();
     }
@@ -89,7 +107,7 @@ public sealed class AppController : IDisposable
         hooks.Cancel(); Config.Normalize();store.Save(Config);Themes.Apply(Config.Theme);hooks.UpdateSettings(Config);radial.Prepare(Config);
         UpdateTray();
     }
-    public void Launch(LaunchItem item) { LaunchAttempts++;if(IsTesting && TestLaunch!=null){TestLaunch(item.Copy());return;}var error=Launcher.Open(item); if(error!=null)Notify(error); }
+    public void Launch(LaunchItem item) { LaunchAttempts++;if((IsTesting || NativeInputTesting) && TestLaunch!=null){TestLaunch(item.Copy());return;}var error=Launcher.Open(item); if(error!=null)Notify(error); }
     void Notify(string text) { if(tray.IsRegistered)tray.Balloon("一划",text,true);else MessageBox.Show(text,"一划",MessageBoxButton.OK,MessageBoxImage.Warning); }
     public void ShowWarning() { if(store.Warning!=null)Notify(store.Warning); }
     public void SetStartup(bool enabled)
@@ -100,6 +118,6 @@ public sealed class AppController : IDisposable
     public void Dispose()
     {
         if(disposed)return; disposed=true;
-        settingsWindow?.Flush(); previewTimer.Stop(); hooks.Dispose(); radial.Close();tray.Dispose();
+        settingsWindow?.Flush(); previewTimer.Stop();runtimeTimer.Stop(); hooks.Dispose(); radial.Close();tray.Dispose();
     }
 }

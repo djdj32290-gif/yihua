@@ -29,7 +29,7 @@ internal static class WebsiteIcons
     internal static HttpClient CreateClient()
     {
         var http=new HttpClient(new HttpClientHandler{UseCookies=false,AutomaticDecompression=DecompressionMethods.All,MaxAutomaticRedirections=4}){Timeout=TimeSpan.FromSeconds(8)};
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Yihua/1.3.4");return http;
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Yihua/1.3.8");return http;
     }
     internal static string? Origin(string target)
     {

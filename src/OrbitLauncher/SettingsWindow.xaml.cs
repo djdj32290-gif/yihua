@@ -14,13 +14,12 @@ public partial class SettingsWindow : Window
 {
     readonly AppController controller;
     readonly DispatcherTimer saveTimer,statusTimer;
-    bool loading=true;
-    DateTime lastStatusWrite=DateTime.MinValue;
+    bool loading=true,exitAfterClose;
     List<ForegroundGuard.ApplicationWindow> runningApps=new();
     Settings Config=>controller.Config;
     public SettingsWindow(AppController controller)
     {
-        this.controller=controller;InitializeComponent();Title="一划 1.3.4 · 设置";
+        this.controller=controller;InitializeComponent();string version=typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "未知";Title=$"一划 {version} · 设置";VersionLabel.Text="版本 "+version;
         saveTimer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(300)};saveTimer.Tick+=(_,_)=>Flush();
         statusTimer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(500)};statusTimer.Tick+=(_,_)=>RefreshRuntime();
         SizeSlider.Value=Config.Diameter;CancelSlider.Value=Config.CancelRadius;ThresholdSlider.Value=Config.DragThreshold;
@@ -32,16 +31,35 @@ public partial class SettingsWindow : Window
         WheelPreview.DeleteSelectionChanged+=RefreshDeleteActions;
         SettingsTabs.SelectionChanged+=(_,e)=>{if(!loading && ReferenceEquals(e.Source,SettingsTabs) && SettingsTabs.SelectedIndex==2)RefreshRunningApps();};
         loading=false;RefreshPreview();UpdateLabels();RefreshChecks();
-        Closing+=(_,e)=> {if(!Flush() && !controller.IsExiting)e.Cancel=true;if(!controller.TrayRegistered && !controller.IsExiting && !controller.IsTesting){e.Cancel=true;SaveStatus.Text="托盘未注册，请先点“退出一划”，并检查项目内便携版目录的运行权限。";}};
+        Closing+=(_,e)=>
+        {
+            if(controller.IsExiting)return;
+            bool saved=Flush();
+            // Without a tray entry, closing settings must also end the app.
+            // A failed save must not trap the user in an unclosable window.
+            if(!controller.TrayRegistered){exitAfterClose=true;return;}
+            if(!saved)e.Cancel=true;
+        };
         SourceInitialized+=(_,_)=>StyleWindow(this);
-        Loaded+=(_,_)=> {RefreshRuntime();statusTimer.Start();};Closed+=(_,_)=>statusTimer.Stop();
+        Loaded+=(_,_)=> {RefreshRuntime();statusTimer.Start();};
+        Closed+=(_,_)=>
+        {
+            saveTimer.Stop();statusTimer.Stop();
+            // Let WPF finish Closed before Shutdown closes the remaining windows.
+            if(exitAfterClose && !controller.IsExiting)Dispatcher.BeginInvoke(()=>{if(!controller.IsExiting)controller.Exit();},DispatcherPriority.Normal);
+        };
     }
     internal static void StyleWindow(Window window) {window.Icon=Branding.Logo;int dark=Themes.Current.IsDark?1:0,rounded=2;var h=new WindowInteropHelper(window).Handle;if(h==IntPtr.Zero)return;Native.DwmSetWindowAttribute(h,20,ref dark,4);Native.DwmSetWindowAttribute(h,33,ref rounded,4);}
-    void RefreshRuntime() {RuntimeTrayStatus.Text=controller.TrayRegistered?"系统托盘 · 已连接":controller.TrayStatus;RuntimeInputStatus.Text=controller.InputStatus;if(DateTime.UtcNow-lastStatusWrite>TimeSpan.FromSeconds(3)){controller.SaveRuntimeStatus();lastStatusWrite=DateTime.UtcNow;}}
+    void RefreshRuntime() {RuntimeTrayStatus.Text=controller.TrayRegistered?"系统托盘 · 已连接":controller.TrayStatus;RuntimeInputStatus.Text=controller.InputStatus;}
+    void ExportDiagnostics_Click(object sender,RoutedEventArgs e)
+    {
+        try {var path=controller.ExportDiagnostics();DiagnosticExportStatus.Text="已保存："+path;}
+        catch(Exception ex){DiagnosticExportStatus.Text="诊断保存失败："+ex.Message;}
+    }
     public void RefreshChecks()
     {
         StartupCheck.IsChecked=StartupService.Enabled;PauseCheck.IsChecked=controller.Paused;
-        if(!controller.TrayRegistered)SaveStatus.Text=ProcessIntegrity.Level is >=0 and <8192?"当前目录受低完整性限制。请使用项目内已验证的便携版目录。":$"系统托盘未就绪（错误 {controller.TrayError}）。";
+        if(!controller.TrayRegistered)SaveStatus.Text=ProcessIntegrity.Level is >=0 and <8192?"当前进程受低完整性限制。请将完整程序重新解压到普通用户目录后运行。":$"系统托盘未就绪（错误信息 {controller.TrayError}，供排查）。";
     }
     internal void RefreshPreview()
     {

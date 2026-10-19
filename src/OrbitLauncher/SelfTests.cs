@@ -33,6 +33,19 @@ internal static partial class SelfTests
             results["ShellTrayIconRegisteredAndLocated"]=controller.TrayVisible && controller.TrayLocated;
             Check(controller.TrayHasExit,"ContextMenuContainsExit");
             int launches=controller.LaunchAttempts;
+            var zeroScreen=Native.ScreenAt(400,400).Work;int zeroX=(zeroScreen.Left+zeroScreen.Right)/2,zeroY=(zeroScreen.Top+zeroScreen.Bottom)/2;
+            controller.TestModifierDown();controller.TestPointer(0x201,zeroX,zeroY);
+            Check(controller.GesturePhase==GesturePhase.Pending,"ModifierDownStartsPendingGesture");
+            controller.TestUnavailableAsyncState();
+            Check(controller.GesturePhase==GesturePhase.Pending,"UnavailableAsyncQueryDoesNotInventModifierRelease");
+            controller.TestPointer(0x200,zeroX+100,zeroY);await Task.Delay(160);
+            controller.TestUnavailableAsyncState();await Task.Delay(100);
+            Check(controller.GesturePhase==GesturePhase.Active && controller.WheelVisible,"UnavailableAsyncQueryPreservesHeldWheel");
+            controller.TestModifierUp();await Task.Delay(150);
+            Check(controller.GesturePhase==GesturePhase.Draining && !controller.WheelVisible,"RealModifierReleaseStillCancelsAfterUnavailableQuery");
+            controller.TestPointer(0x202,zeroX+100,zeroY);await Task.Delay(80);
+            controller.TestPointer(0x201,zeroX,zeroY);controller.TestPointer(0x200,zeroX+100,zeroY);controller.TestPointer(0x202,zeroX+100,zeroY);await Task.Delay(80);
+            Check(controller.GesturePhase==GesturePhase.Idle && !controller.WheelVisible && controller.LaunchAttempts==launches,"MouseDragWithoutModifierDoesNotOpenWheelAfterRelease");
             var origin=controller.TestHoldStart();await Task.Delay(1600);
             Check(controller.GesturePhase==GesturePhase.Active && controller.WheelVisible,"HeldGestureSurvives1600msWithoutAsyncButtonState");
             controller.TestHoldRelease(origin.X,origin.Y);await Task.Delay(180);
@@ -83,6 +96,7 @@ internal static partial class SelfTests
         {
             controller.ShowSettings();await Task.Delay(200);
             var window=app.Windows.OfType<SettingsWindow>().Single();var preview=(RadialSurface)window.FindName("WheelPreview");
+            Check(((TextBlock)window.FindName("VersionLabel")).Text=="版本 "+typeof(Program).Assembly.GetName().Version?.ToString(3),"DisplayedVersionMatchesRunningAssembly");
             Check(preview.EditorMode && preview.ActualWidth>0,"EmbeddedEditableWheelVisible");
             Check(window.FindName("ItemList")==null,"VerticalListRemoved");
             Check(((TabControl)window.FindName("SettingsTabs")).Items.Count==3,"GlobalSettingsAndGameProtectionInSeparateTabs");

@@ -13,6 +13,13 @@ internal sealed class ForegroundGuard
     {
         public ImageSource Icon=>Icons.For(Path.Length>0?Path:Name);
     }
+    internal sealed record WindowContext(long Handle,uint ProcessId,string ClassName,string ProcessName,bool IsLauncher);
+    internal static WindowContext CaptureForeground()
+    {
+        var hwnd=GetForegroundWindow();GetWindowThreadProcessId(hwnd,out uint pid);
+        var name=new StringBuilder(128);GetClassName(hwnd,name,name.Capacity);
+        return new(hwnd.ToInt64(),pid,name.ToString(),NormalizeName(ReadProcessPath(pid)),pid==Environment.ProcessId);
+    }
     delegate bool EnumProc(IntPtr hwnd,IntPtr data);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Native.POINT point);

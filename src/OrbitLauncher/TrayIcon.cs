@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -20,11 +21,16 @@ internal sealed class TrayIcon : IDisposable
     readonly uint taskbarCreated;
     readonly Action<uint> command;
     readonly Func<bool> paused,autostart;
+    readonly Queue<RegistrationAttempt> registrationAttempts=new();
+    readonly bool simulateRegistrationFailure;
     bool disposed,useGuid=true;
     string tooltip="一划 · 正在运行 · 左键设置 / 右键退出";
     public bool IsRegistered { get; private set; }
     public bool Removed { get; private set; }
+    // Shell_NotifyIcon only documents a BOOL result; LastError is advisory diagnostics.
     internal int RegistrationError { get; private set; }
+    internal sealed record RegistrationAttempt(DateTimeOffset TimeUtc,uint Operation,string OperationName,bool UsesGuid,Guid Guid,string WindowHandle,bool Success,int LastError);
+    internal RegistrationAttempt[] RegistrationAttempts=>registrationAttempts.ToArray();
 
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]
     struct NOTIFYICONDATA
@@ -39,6 +45,7 @@ internal sealed class TrayIcon : IDisposable
     }
     [StructLayout(LayoutKind.Sequential)]struct ICONIDENTIFIER { public uint Size;public IntPtr Hwnd;public uint Id;public Guid Guid; }
     [DllImport("shell32.dll",CharSet=CharSet.Unicode,EntryPoint="Shell_NotifyIconW",SetLastError=true)]static extern bool ShellNotify(uint operation,ref NOTIFYICONDATA data);
+    [DllImport("kernel32.dll",EntryPoint="SetLastError")]static extern void ResetLastError(uint error);
     [DllImport("shell32.dll")]static extern int Shell_NotifyIconGetRect(ref ICONIDENTIFIER icon,out Native.RECT rect);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern uint RegisterWindowMessage(string message);
     [DllImport("user32.dll")]static extern IntPtr CreatePopupMenu();
@@ -50,9 +57,10 @@ internal sealed class TrayIcon : IDisposable
     [DllImport("user32.dll")]static extern int GetMenuItemCount(IntPtr menu);
     [DllImport("user32.dll")]static extern uint GetMenuState(IntPtr menu,uint id,uint flags);
 
-    public TrayIcon(Action<uint> command,Func<bool> paused,Func<bool> autostart)
+    public TrayIcon(Action<uint> command,Func<bool> paused,Func<bool> autostart,bool simulateRegistrationFailure=false)
     {
         this.command=command;this.paused=paused;this.autostart=autostart;
+        this.simulateRegistrationFailure=simulateRegistrationFailure;
         // Stable for this portable location; a moved portable copy receives its own identity.
         identity=new Guid(SHA256.HashData(Encoding.Unicode.GetBytes(Environment.ProcessPath!.ToUpperInvariant())).AsSpan(0,16));
         icon=Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? (Icon)SystemIcons.Application.Clone();
@@ -62,18 +70,32 @@ internal sealed class TrayIcon : IDisposable
         retry.Tick+=(_,_)=>Register(); Register();
     }
     NOTIFYICONDATA Data(uint flags)=>new() { Size=(uint)Marshal.SizeOf<NOTIFYICONDATA>(),Hwnd=source.Handle,Id=1,Guid=useGuid?identity:Guid.Empty,Flags=flags|(useGuid?0x20u:0),CallbackMessage=Callback,Icon=icon.Handle,Tip=tooltip,Info="",Title="" };
+    bool RegistrationCall(uint operation,ref NOTIFYICONDATA data,out int error)
+    {
+        var time=DateTimeOffset.UtcNow;
+        bool success;
+        if(simulateRegistrationFailure){success=false;error=5;}
+        else
+        {
+            ResetLastError(0);success=ShellNotify(operation,ref data);
+            error=Marshal.GetLastPInvokeError();
+        }
+        registrationAttempts.Enqueue(new(time,operation,operation switch {0=>"NIM_ADD",1=>"NIM_MODIFY",4=>"NIM_SETVERSION",_=>operation.ToString()},(data.Flags&0x20)!=0,data.Guid,$"0x{data.Hwnd.ToInt64():X}",success,error));
+        while(registrationAttempts.Count>32)registrationAttempts.Dequeue();
+        return success;
+    }
     void Register()
     {
         if(disposed)return;
         var data=Data(1|2|4|0x80);
-        IsRegistered=ShellNotify(0,ref data) || ShellNotify(1,ref data);
+        IsRegistered=RegistrationCall(0,ref data,out int error) || RegistrationCall(1,ref data,out error);
         if(!IsRegistered && useGuid)
         {
             // A locked-down profile can reject GUID registration. HWND + ID remains supported.
-            useGuid=false;data=Data(1|2|4|0x80);IsRegistered=ShellNotify(0,ref data) || ShellNotify(1,ref data);
+            useGuid=false;data=Data(1|2|4|0x80);IsRegistered=RegistrationCall(0,ref data,out error) || RegistrationCall(1,ref data,out error);
         }
-        RegistrationError=IsRegistered?0:Marshal.GetLastWin32Error();
-        if(IsRegistered) { var version=Data(0);version.Version=4;ShellNotify(4,ref version);retry.Stop(); }
+        RegistrationError=IsRegistered?0:error;
+        if(IsRegistered) { var version=Data(0);version.Version=4;RegistrationCall(4,ref version,out _);retry.Stop(); }
         else { retry.Interval=TimeSpan.FromSeconds(RegistrationError==5?5:1);retry.Start(); }
     }
     public void Update(string hint)

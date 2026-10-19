@@ -41,9 +41,12 @@ internal static partial class SelfTests
             for(int index=0;index<8;index++)
             {
                 double angle=-Math.PI/2+index*Math.PI/4;var p=Point(260*Math.Cos(angle),260*Math.Sin(angle));controller.TestModifierDown();
-                controller.TestPointerBurst((0x201,x,y),(0x200,p.X,p.Y));await Task.Delay(45);
-                check(launched.Count==0 && controller.TestWheel.Selection.Confirmed && controller.TestWheel.Selection.Stops.Single().Index==index,$"FastDirection{index}CorrectBeforeOpeningAnimationEndsAndNoEarlyLaunch");
-                controller.TestPointer(0x202,p.X,p.Y);await Task.Delay(85);controller.TestModifierUp();
+                controller.TestPointerBurst((0x201,x,y),(0x200,p.X,p.Y));
+                // Delay continuations run at Normal priority and can overtake Input
+                // callbacks on a busy UI. Drain those callbacks before inspecting.
+                await Dispatcher.Yield(DispatcherPriority.Background);
+                check(launched.Count==0 && controller.TestWheel.Selection.Confirmed && controller.TestWheel.Selection.Stops.Single().Index==index,$"FastDirection{index}CorrectOnFirstUiDrainAndNoEarlyLaunch");
+                controller.TestPointer(0x202,p.X,p.Y);await Task.Delay(85);await Dispatcher.Yield(DispatcherPriority.Background);controller.TestModifierUp();
                 check(launched.SequenceEqual(new[]{controller.Config.Items[index].Name}),$"FastDirection{index}ReleaseDispatchesExactlyOneCorrectEntry");launched.Clear();
             }
             var left=Point(-260,0);var right=Point(260,0);var nearLeft=Point(-40,0);var nearRight=Point(40,0);

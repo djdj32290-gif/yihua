@@ -5,7 +5,7 @@ $taskRoot = Split-Path $PSScriptRoot -Parent
 if (!$Version) { $Version=([xml](Get-Content -LiteralPath (Join-Path $PSScriptRoot 'OrbitLauncher\OrbitLauncher.csproj') -Raw)).Project.PropertyGroup.Version }
 $taskPortable = Join-Path $taskRoot 'deliverables\一划便携版'
 $taskVerification = Join-Path $taskRoot 'verification'
-foreach ($taskKind in @('self-test','verify-hold','verify-ui')) {
+foreach ($taskKind in @('self-test','verify-hold','verify-ui','verify-native-input','verify-tray-failure','verify-tray-failure-save')) {
     $taskResult = Get-Content -LiteralPath (Join-Path $taskVerification "final-$Version-$taskKind.json") -Raw | ConvertFrom-Json
     if (!$taskResult.Success) { throw "打包前验证未通过：$taskKind" }
 }

@@ -57,6 +57,7 @@ internal static partial class SelfTests
         check(Alpha(221)>90 && Alpha(290)<40,"外部确认区沿半径平滑渐隐至透明");
         int offset=((316*2)*1264+(316-85)*2)*4;
         check(pixels[offset+1]>180 && pixels[offset+2]<150,"路径线覆盖从中心到停留点的连线");
+        VerifySelectedReturns(check);
     }
 
     static void VerifyBatchDelete(AppController controller,SettingsWindow window,RadialSurface preview,string folder,Action<bool,string> check)
@@ -141,6 +142,7 @@ internal static partial class SelfTests
             check(launched.SequenceEqual(new[]{controller.Config.Items[6].Name}),"FirstFastOutsideReleaseSelectsCurrentDirectionWithoutDwell");launched.Clear();
             await Start();await Select(radius,0);Point(-outside,0,0x202);await Task.Delay(150);controller.TestModifierUp();
             check(launched.Count==0,"ReleaseThroughUnselectedOppositeDirectionCannotLaunch");
+            await VerifySelectedReturnGestures(controller,launched,check);
         }
         finally {controller.TestProtection(null);controller.Recover();controller.TestModifierUp();controller.Config.Items=original;controller.Config.GameModeEnabled=originalProtection;controller.Apply();controller.TestLaunch=null;}
     }

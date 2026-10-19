@@ -71,12 +71,13 @@ internal sealed class GestureSelection
                 selectedMask|=(ushort)(1<<Hovered);Armed=Hovered;
             }
             Candidate=-1;Progress=0;
-            // Once an entry is selected, leaving through a different unarmed
-            // sector cannot silently add it to the batch.
+            // Any previously selected entry can confirm the batch again after
+            // returning through another sector or the centre. Reuse its entry
+            // in the batch; an unselected sector still cannot add or confirm it.
             // The whole outward sector confirms, starting at the ring edge.
             // There is no separate button or extra radial target to aim for.
-            Confirmed=Armed>=0 && Hovered==Armed;
-            if(Hovered!=Armed)Armed=-1;
+            Confirmed=Contains(Hovered);
+            Armed=Confirmed?Hovered:-1;
         }
     }
     internal int[] Release(bool commit)
