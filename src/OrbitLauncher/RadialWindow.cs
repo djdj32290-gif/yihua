@@ -102,6 +102,8 @@ public sealed class RadialSurface : FrameworkElement
     Point pressPoint,dragPoint;
     public RadialSurface()
     {
+        Loaded+=(_,_)=>{WebsiteIcons.Updated+=WebsiteIconUpdated;RefreshWebsiteIcons();};
+        Unloaded+=(_,_)=>WebsiteIcons.Updated-=WebsiteIconUpdated;
         Focusable=true;FocusVisualStyle=null;
         MouseLeftButtonDown+=(_,e)=> {if(!EditorMode)return;Focus();EditorPointerDown(e.GetPosition(this));if(editorPressed)CaptureMouse();e.Handled=true;};
         MouseMove+=(_,e)=> {if(EditorMode)EditorPointerMove(e.GetPosition(this));};
@@ -139,6 +141,7 @@ public sealed class RadialSurface : FrameworkElement
     {editorPressed=editorDragging=false;dragSource=-2;dragTarget=-1;if(IsMouseCaptured)ReleaseMouseCapture();Cursor=Cursors.Arrow;InvalidateVisual();}
     public Settings Settings { get; private set; } = new();
     List<ImageSource> icons=new();
+    List<bool> websiteTargets=new();
     List<ItemAppearance.Palette> palettes=new();
     public int Selected { get; set; }=-1;
     static readonly ConcurrentDictionary<uint,SolidColorBrush> brushes=new();
@@ -151,7 +154,14 @@ public sealed class RadialSurface : FrameworkElement
     static readonly CultureInfo culture=CultureInfo.GetCultureInfo("zh-CN");
     readonly Dictionary<(Point,double,double,double,double),Geometry> geometryCache=new();
     readonly Dictionary<(string,double,Color,double,int,double),FormattedText> textCache=new();
-    public void Configure(Settings settings) { CancelEditorDrag();geometryCache.Clear();textCache.Clear();Settings=settings;skin=Themes.Get(settings.Theme); icons=settings.Items.Select(i=>Icons.For(i.Target)).ToList();palettes=settings.Items.Select(i=>ItemAppearance.For(ItemAppearance.Classify(i.Target),settings.Theme)).ToList(); InvalidateVisual(); }
+    public void Configure(Settings settings) { CancelEditorDrag();geometryCache.Clear();textCache.Clear();Settings=settings;skin=Themes.Get(settings.Theme);websiteTargets=settings.Items.Select(i=>Launcher.IsUrl(i.Target)).ToList(); icons=settings.Items.Select(i=>Icons.For(i.Target)).ToList();palettes=settings.Items.Select(i=>ItemAppearance.For(ItemAppearance.Classify(i.Target),settings.Theme)).ToList(); InvalidateVisual(); }
+    void WebsiteIconUpdated(string origin)
+    {
+        for(int i=0;i<Settings.Items.Count && i<icons.Count;i++)if(WebsiteIcons.Origin(Settings.Items[i].Target)==origin)icons[i]=Icons.For(Settings.Items[i].Target);
+        InvalidateVisual();
+    }
+    void RefreshWebsiteIcons(){for(int i=0;i<Settings.Items.Count && i<icons.Count;i++)if(Launcher.IsUrl(Settings.Items[i].Target))icons[i]=Icons.For(Settings.Items[i].Target);InvalidateVisual();}
+    internal ImageSource? IconAt(int index)=>index>=0 && index<icons.Count?icons[index]:null;
     protected override void OnRender(DrawingContext dc)
     {
         double size=ActualWidth, c=size/2, outer=OuterRadius, inner=Settings.CancelRadius+10;
@@ -172,7 +182,13 @@ public sealed class RadialSurface : FrameworkElement
             double radius=inner+(outer-inner)*.54;
             double ix=c+Math.Cos(angle)*radius, iy=c+Math.Sin(angle)*radius;
             double iconSize=EditorMode?(count>12?32:40):(count>12?28:34);
-            if(i<icons.Count) dc.DrawImage(icons[i],new Rect(ix-iconSize/2,iy-iconSize/2-10,iconSize,iconSize));
+            if(i<icons.Count)
+            {
+                var iconRect=new Rect(ix-iconSize/2,iy-iconSize/2-10,iconSize,iconSize);
+                // Transparent black favicons need a neutral backing on dark themes too.
+                if(websiteTargets[i])dc.DrawRoundedRectangle(Brush(255,255,255,245),null,new Rect(iconRect.X-2,iconRect.Y-2,iconRect.Width+4,iconRect.Height+4),7,7);
+                dc.DrawImage(icons[i],iconRect);
+            }
             DrawText(dc,Settings.Items[i].Name,new Point(ix,iy+iconSize/2-3),EditorMode?(count>12?14:16):(count>12?10.5:12),i==Selected?Text:skin.Brush("WheelLabel"),Math.Max(28,Math.Min(108,Math.PI*2*radius/count-8)),1);
             if(EditorMode && DeleteMode)
             {

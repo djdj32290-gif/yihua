@@ -37,7 +37,7 @@ internal static partial class SelfTests
         }
         foreach(var palette in Themes.Options)
         {
-            const int size=632;var settings=Settings.Defaults();settings.Theme=palette.Id;
+            const int size=632;var settings=DemoSettings();settings.Theme=palette.Id;
             var surface=new RadialSurface{Width=size,Height=size};surface.Configure(settings);
             surface.Measure(new Size(size,size));surface.Arrange(new Rect(0,0,size,size));surface.UpdateLayout();
             surface.Gesture.Begin(8,surface.OuterRadius,58);surface.Gesture.Update(140,0,0);surface.Gesture.Update(140,0,150);surface.Gesture.Update(211,0,160);surface.InvalidateVisual();surface.UpdateLayout();
@@ -52,7 +52,7 @@ internal static partial class SelfTests
     static async Task VerifyEdgeGestures(AppController controller,string folder,Action<bool,string> check)
     {
         var original=controller.Config.Items;var launched=new List<string>();controller.TestLaunch=item=>launched.Add(item.Name);
-        controller.Config.Items=Settings.Defaults().Items;controller.Apply();
+        controller.Config.Items=DemoSettings().Items;controller.Apply();
         var monitor=Native.MonitorFromPoint(new Native.POINT(400,400),2);var info=new Native.MONITORINFO{Size=Marshal.SizeOf<Native.MONITORINFO>()};
         if(!Native.GetMonitorInfo(monitor,ref info))throw new Exception("无法读取边界验证显示器");
         var work=info.Work;var bounds=info.Monitor;int cx=(work.Left+work.Right)/2,cy=(work.Top+work.Bottom)/2;
@@ -74,7 +74,7 @@ internal static partial class SelfTests
                 int x=(int)Math.Round(point.X+radius*Math.Cos(angle)*place.Scale),y=(int)Math.Round(point.Y+radius*Math.Sin(angle)*place.Scale);
                 controller.TestPointer(0x200,x,y);await Task.Delay(40);
                 check(wheel.Selection.Confirmed,$"Edge{point}NearEdgeOfWholeConfirmationAreaArms");
-                if(point.Y==work.Bottom-2)SaveVisual(wheel,Path.Combine(folder,"任务栏边缘-1.3.3.png"));
+                if(point.Y==work.Bottom-2)SaveVisual(wheel,Path.Combine(folder,"任务栏边缘-1.3.4.png"));
                 controller.TestPointer(0x202,x,y);await Task.Delay(110);controller.TestModifierUp();
                 check(launched.SequenceEqual(new[]{controller.Config.Items[selectedIndex].Name}),$"Edge{point}ConfirmedReleaseDispatchesExactlyOnce");launched.Clear();
             }

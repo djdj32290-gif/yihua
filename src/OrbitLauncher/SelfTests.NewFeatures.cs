@@ -49,7 +49,7 @@ internal static partial class SelfTests
         s.Begin(0,209,58);s.Update(250,0,300);check(s.Release(true).Length==0,"空轮盘不能确认");
         s.Begin(8,209,58);s.Update(140,0,0);s.Update(140,0,150);s.Update(250,0,160);s.Update(0,0,170);
         check(s.Release(true).Length==0,"确认后返回中心松开仍全部取消");
-        var surface=new RadialSurface{Width=632,Height=632};surface.Configure(Settings.Defaults());
+        var surface=new RadialSurface{Width=632,Height=632};surface.Configure(DemoSettings());
         surface.Measure(new Size(632,632));surface.Arrange(new Rect(0,0,632,632));surface.UpdateLayout();
         surface.Gesture.Begin(8,surface.OuterRadius,58);surface.Gesture.Update(-140,0,0);surface.Gesture.Update(-140,0,150);surface.Gesture.Update(140,0,160);surface.Gesture.Update(140,0,310);surface.Gesture.Update(259,0,320);surface.InvalidateVisual();surface.UpdateLayout();
         var bitmap=new RenderTargetBitmap(1264,1264,192,192,PixelFormats.Pbgra32);bitmap.Render(surface);var pixels=new byte[1264*1264*4];bitmap.CopyPixels(pixels,1264*4,0);
@@ -81,7 +81,7 @@ internal static partial class SelfTests
                 var source=new Point(preview.ActualWidth/2,24);var target=new Point(preview.ActualWidth-24,preview.ActualHeight/2);
                 preview.EditorPointerDown(source);preview.EditorPointerMove(target);preview.EditorPointerUp(target);
                 check(controller.Config.Items.SequenceEqual(original),"删除模式拖动不会交换或修改选项");
-                SaveVisual(window,Path.Combine(folder,"批量删除-1.3.3.png"));
+                SaveVisual(window,Path.Combine(folder,"批量删除-1.3.4.png"));
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 check(!preview.DeleteMode && controller.Config.Items.SequenceEqual(original),"退出删除模式保留所有配置");
                 toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Click(0);Click(original.Count-1);
@@ -104,7 +104,7 @@ internal static partial class SelfTests
     {
         var original=controller.Config.Items;bool originalProtection=controller.Config.GameModeEnabled;
         var launched=new List<string>();controller.TestLaunch=i=>launched.Add(i.Name);
-        controller.Config.Items=Settings.Defaults().Items;controller.Config.GameModeEnabled=true;controller.Apply();
+        controller.Config.Items=DemoSettings().Items;controller.Config.GameModeEnabled=true;controller.Apply();
         try
         {
             async Task Start()
@@ -117,14 +117,14 @@ internal static partial class SelfTests
             await Start();await Select(-radius,0);Point(0,0);await Task.Delay(35);await Select(radius,0);
             check(launched.Count==0 && controller.TestWheel.Selection.Stops.Select(s=>s.Index).SequenceEqual(new[]{6,2}),"HoldingLeftThenRightCollectsWithoutAnyEarlyLaunch");
             check(!controller.TestWheel.DwellTimerRunning,"StableSelectionStopsDwellTimerWithoutEndingGesture");
-            SaveVisual(controller.TestWheel,Path.Combine(folder,"多选路径-1.3.3.png"));
+            SaveVisual(controller.TestWheel,Path.Combine(folder,"多选路径-1.3.4.png"));
             Point(radius,0,0x202);await Task.Delay(160);controller.TestModifierUp();
             check(launched.Count==0 && controller.TestWheel.Selection.Stops.Count==0,"ReleaseInsideLastSectorCancelsEveryEntryAndPath");
             await Start();await Select(-radius,0);Point(0,0);await Task.Delay(35);await Select(radius,0);
             double outside=controller.TestWheel.Surface.OuterRadius+50;Point(outside,0);await Task.Delay(50);
             check(controller.TestWheel.Selection.Confirmed,"LastSectorOuterExtensionArmsBatch");
             check(!controller.TestWheel.DwellTimerRunning,"OuterConfirmationDoesNotKeepDwellTimerRunning");
-            SaveVisual(controller.TestWheel,Path.Combine(folder,"外拉确认-1.3.3.png"));
+            SaveVisual(controller.TestWheel,Path.Combine(folder,"外拉确认-1.3.4.png"));
             Point(outside,0,0x202);await Task.Delay(160);controller.TestModifierUp();
             check(launched.SequenceEqual(new[]{controller.Config.Items[6].Name,controller.Config.Items[2].Name}),"ConfirmedReleaseDispatchesBothEntriesInSelectionOrder");launched.Clear();
             await Start();await Select(radius,0);Point(outside,0);await Task.Delay(40);controller.TestEscape();await Task.Delay(80);Point(outside,0,0x202);await Task.Delay(120);controller.TestModifierUp();

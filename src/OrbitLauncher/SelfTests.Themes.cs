@@ -22,7 +22,7 @@ internal static partial class SelfTests
         old.Theme="invalid";old.Normalize();check(old.Theme=="Obsidian","未知皮肤安全回退为曜石黑");
         foreach(var palette in Themes.Options)
         {
-            var config=Settings.Defaults();config.Theme=palette.Id;
+            var config=DemoSettings();config.Theme=palette.Id;
             check(config.Copy().Theme==palette.Id && JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(config))!.Theme==palette.Id,$"{palette.Id} 皮肤复制及序列化往返");
             check(Contrast(palette.Brush("Text").Color,palette.Brush("Window").Color)>=4.5 && Contrast(palette.Brush("Muted").Color,palette.Brush("Card").Color)>=4.5,$"{palette.Id} 正文及次要文字有足够对比度");
             check(Contrast(palette.Brush("OnAccent").Color,palette.Brush("Accent").Color)>=4.5,$"{palette.Id} 主按钮文字对比度");
@@ -57,7 +57,7 @@ internal static partial class SelfTests
                 var stored=new SettingsWindow(controller);
                 check((string)((ComboBox)stored.FindName("ThemeBox")).SelectedValue==palette.Id,$"{palette.Id} 重新创建设置窗口记住皮肤");stored.Close();
 
-                var config=Settings.Defaults();config.Theme=palette.Id;
+                var config=DemoSettings();config.Theme=palette.Id;
                 var wheel=new RadialSurface{Width=632,Height=632};wheel.Configure(config);
                 wheel.Measure(new Size(632,632));wheel.Arrange(new Rect(0,0,632,632));wheel.UpdateLayout();
                 wheel.Gesture.Begin(8,wheel.OuterRadius,58);wheel.Gesture.Update(-140,0,0);wheel.Gesture.Update(-140,0,150);wheel.Gesture.Update(140,0,160);wheel.Gesture.Update(140,0,310);wheel.Gesture.Update(259,0,320);wheel.Selected=2;wheel.InvalidateVisual();wheel.UpdateLayout();

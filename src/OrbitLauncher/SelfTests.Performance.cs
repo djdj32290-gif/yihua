@@ -15,7 +15,7 @@ internal static partial class SelfTests
         string report=args.Length>1?args[1]:Path.Combine(AppContext.BaseDirectory,"render-benchmark.json");
         try
         {
-            var surface=new RadialSurface{Width=632,Height=632};surface.Configure(Settings.Defaults());
+            var surface=new RadialSurface{Width=632,Height=632};surface.Configure(DemoSettings());
             surface.Measure(new Size(632,632));surface.Arrange(new Rect(0,0,632,632));surface.UpdateLayout();
             surface.Gesture.Begin(8,surface.OuterRadius,58);surface.Gesture.Update(-140,0,0);surface.Gesture.Update(-140,0,150);surface.Gesture.Update(140,0,160);surface.Gesture.Update(140,0,310);
             var bitmap=new RenderTargetBitmap(632,632,96,96,PixelFormats.Pbgra32);

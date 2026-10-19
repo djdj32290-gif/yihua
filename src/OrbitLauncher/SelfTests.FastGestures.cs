@@ -33,7 +33,7 @@ internal static partial class SelfTests
     static async Task VerifyFastGestures(AppController controller,Action<bool,string> check)
     {
         var original=controller.Config.Items;var launched=new List<string>();controller.TestLaunch=item=>launched.Add(item.Name);
-        controller.Config.Items=Settings.Defaults().Items;controller.Apply();
+        controller.Config.Items=DemoSettings().Items;controller.Apply();
         var screen=Native.ScreenAt(400,400);int x=(screen.Work.Left+screen.Work.Right)/2,y=(screen.Work.Top+screen.Work.Bottom)/2;
         (int X,int Y) Point(double dx,double dy)=>(x+(int)Math.Round(dx*screen.Scale),y+(int)Math.Round(dy*screen.Scale));
         try

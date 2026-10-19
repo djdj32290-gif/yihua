@@ -4,7 +4,7 @@
     <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings><StartupObject>OrbitLauncher.Program</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest><ApplicationIcon>app.ico</ApplicationIcon>
-    <AssemblyName>OrbitLauncher</AssemblyName><Version>1.3.3</Version>
+    <AssemblyName>OrbitLauncher</AssemblyName><Version>1.3.4</Version>
     <Product>一划</Product><Title>一划 · 轮盘快捷启动器</Title><Description>一划即达，让常用的入口就在手边。</Description>
     <PublishTrimmed>false</PublishTrimmed><EnableWindowsTargeting>true</EnableWindowsTargeting><NoWarn>$(NoWarn);WFO0003</NoWarn>
   </PropertyGroup>

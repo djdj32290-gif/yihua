@@ -19,6 +19,7 @@ internal static partial class SelfTests
     public static async void BeginHoldChecks(Application app,AppController controller,string report)
     {
         var results=new Dictionary<string,object>();
+        var originalItems=controller.Config.Items;controller.Config.Items=DemoSettings().Items;controller.Apply();
         void Check(bool value,string name) { results[name]=value;if(!value)throw new Exception(name); }
         app.Exit+=(_,_)=> { results["NativeHooksReleasedAndThreadStopped"]=controller.InputResourcesReleased;results["ShellTrayIconRemoved"]=controller.TrayRemoved;File.WriteAllText(report,JsonSerializer.Serialize(results,new JsonSerializerOptions { WriteIndented=true })); };
         try
@@ -59,14 +60,15 @@ internal static partial class SelfTests
             await VerifyFastGestures(controller,Check);
             results["GestureChecksPassed"]=true;
             results["Success"]=controller.TrayRegistered && controller.TrayLocated;
+            controller.Config.Items=originalItems;controller.Apply();
             controller.TestTrayExit();
         }
-        catch(Exception ex) { results["Success"]=false;results["Error"]=ex.ToString();app.Shutdown(1); }
+        catch(Exception ex) { controller.Config.Items=originalItems;try{controller.Apply();}catch{} results["Success"]=false;results["Error"]=ex.ToString();app.Shutdown(1); }
     }
     public static int ExportPreview(string[] args)
     {
         string file=args.Length>1?args[1]:Path.Combine(AppContext.BaseDirectory,"preview.png");
-        var surface=new RadialSurface();surface.Configure(Settings.Defaults());surface.Selected=1;
+        var surface=new RadialSurface();surface.Configure(DemoSettings());surface.Selected=1;
         surface.Measure(new Size(452,452));surface.Arrange(new Rect(0,0,452,452));surface.UpdateLayout();
         var bitmap=new RenderTargetBitmap(904,904,192,192,PixelFormats.Pbgra32);bitmap.Render(surface);
         var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using var stream=File.Create(file);png.Save(stream);return 0;
@@ -94,16 +96,17 @@ internal static partial class SelfTests
                 app.Dispatcher.BeginInvoke(()=> {try {action(app.Windows.OfType<ItemEditorWindow>().Single());}catch(Exception ex){error=ex;foreach(var editor in app.Windows.OfType<ItemEditorWindow>().ToArray())editor.Close();}});
                 preview.EditorPointerDown(point);preview.EditorPointerUp(point);if(error!=null)throw error;
             }
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"设置页-1.3.3.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"设置页-1.3.4.png"));
             var headerTabs=(TabControl)window.FindName("SettingsTabs");
             for(int tabIndex=0;tabIndex<headerTabs.Items.Count;tabIndex++)
             {
                 headerTabs.SelectedIndex=tabIndex;var tab=(TabItem)headerTabs.Items[tabIndex];tab.Focus();await Task.Delay(80);window.UpdateLayout();
-                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,$"标签{tabIndex}-1.3.3.png"));
+                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,$"标签{tabIndex}-1.3.4.png"));
                 Check(RoundedTabCorners(tab),$"SelectedFocusedTab{tabIndex}HasFourRoundedCorners");
             }
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"标签焦点-1.3.3.png"));headerTabs.SelectedIndex=0;window.UpdateLayout();
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"标签焦点-1.3.4.png"));headerTabs.SelectedIndex=0;window.UpdateLayout();
             await VerifyThemes(controller,window,preview,Path.GetDirectoryName(report)!,Check);
+            await VerifyWebsiteIconRefresh(controller,window,Path.GetDirectoryName(report)!,Check);
             await VerifyRunningApplications(controller,window,Path.GetDirectoryName(report)!,Check);
             VerifyBatchDelete(controller,window,preview,Path.GetDirectoryName(report)!,Check);
             int count=controller.Config.Items.Count;
@@ -113,7 +116,7 @@ internal static partial class SelfTests
                 var next=new Point(center.X+Math.Cos(angle)*radius,center.Y+Math.Sin(angle)*radius);
                 var first=controller.Config.Items[0];var secondItem=controller.Config.Items[1];
                 preview.EditorPointerDown(top);preview.EditorPointerMove(next);
-                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"拖动交换-1.3.3.png"));preview.EditorPointerUp(next);
+                SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"拖动交换-1.3.4.png"));preview.EditorPointerUp(next);
                 Check(ReferenceEquals(controller.Config.Items[0],secondItem) && ReferenceEquals(controller.Config.Items[1],first),"DragSwapsExactlyTwoItems");
                 Check(!app.Windows.OfType<ItemEditorWindow>().Any(),"DragDoesNotOpenEditor");
                 Check(new ConfigStore().Load().Items[0].Name==secondItem.Name,"DragSwapSavedToDisk");
@@ -144,14 +147,14 @@ internal static partial class SelfTests
                 Edit(top,editor=> {((TextBox)editor.FindName("NameBox")).Text="未保存草稿";editor.Close();});
                 Check(controller.Config.Items[0].Name==name,"CancelEditPreservesOriginal");
                 Edit(top,editor=> {
-                    editor.UpdateLayout();SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"选项详情-1.3.3.png"));
+                    editor.UpdateLayout();SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"选项详情-1.3.4.png"));
                     var form=(FrameworkElement)editor.FindName("EditorForm");var testButton=(Button)editor.FindName("TestItemButton");
                     Check(form.Parent is Grid,"EditorFormHasNoOuterScrollViewer");
                     editor.Width=editor.MinWidth;editor.Height=editor.MinHeight;
                     var status=(TextBlock)editor.FindName("EditorStatus");status.Text=new string('测',120);editor.UpdateLayout();
                     Check(testButton.TranslatePoint(new Point(0,testButton.ActualHeight),form).Y<=form.ActualHeight+.5,"AllEditorFieldsFitAtMinimumSizeWithValidationMessage");
                     var runningButton=(Button)editor.FindName("RunningAppsButton");Check(runningButton.TranslatePoint(new Point(runningButton.ActualWidth,0),form).X<=form.ActualWidth+.5,"RunningProgramBrowseButtonFitsMinimumEditorWidth");
-                    SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"紧凑选项详情-1.3.3.png"));
+                    SaveVisual(editor,Path.Combine(Path.GetDirectoryName(report)!,"紧凑选项详情-1.3.4.png"));
                     ((TextBox)editor.FindName("NameBox")).Text="中文编辑保存验证";Check(editor.SaveItem(),"ExistingItemSaves");});
                 Check(new ConfigStore().Load().Items[0].Name=="中文编辑保存验证","EditedNameReadback");
                 Edit(top,editor=> {((TextBox)editor.FindName("NameBox")).Text=name;Check(editor.SaveItem(),"RestoreEditedName");});
@@ -184,15 +187,15 @@ internal static partial class SelfTests
             blocked.SelectedItem=blocked.Items.Cast<ForegroundGuard.ApplicationWindow>().Single(x=>x.Name==appItem.Name);((Button)window.FindName("RemoveAppButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(new ConfigStore().Load().BlockedApplications.SequenceEqual(original.BlockedApplications),"RemoveProtectedApplicationRestoresList");
             Check(running.Items.Cast<ForegroundGuard.ApplicationWindow>().Any(x=>x.Name==appItem.Name),"RemovingRuleReturnsRunningApplicationToLeft");
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"游戏保护-1.3.3.png"));tabs.SelectedIndex=1;await Task.Delay(100);
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"游戏保护-1.3.4.png"));tabs.SelectedIndex=1;await Task.Delay(100);
             var size=(Slider)window.FindName("SizeSlider");size.Value=original.Diameter==680?670:original.Diameter+10;await Task.Delay(500);
             Check(new ConfigStore().Load().Diameter==(int)size.Value,"GlobalAppearanceSavesIndependently");
             Check(controller.Config.Items.Count==count,"GlobalChangeDoesNotChangeItems");size.Value=original.Diameter;window.Flush();
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"全局设置-1.3.3.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"全局设置-1.3.4.png"));
             window.Width=760;window.Height=640;await Task.Delay(100);
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑全局设置-1.3.3.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑全局设置-1.3.4.png"));
             tabs.SelectedIndex=0;await Task.Delay(100);
-            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑设置页-1.3.3.png"));
+            SaveVisual(window,Path.Combine(Path.GetDirectoryName(report)!,"紧凑设置页-1.3.4.png"));
             ((Button)window.FindName("SaveCloseButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Check(controller.TrayVisible && !app.Windows.OfType<SettingsWindow>().Any(),"SaveCloseKeepsTray");
             controller.ShowSettings();Check(app.Windows.OfType<SettingsWindow>().Single().IsVisible,"SettingsReopen");
@@ -230,7 +233,7 @@ internal static partial class SelfTests
     }
     static bool ContinuousRing(int count,bool editor=true,string theme="Obsidian")
     {
-        var settings=Settings.Defaults();settings.Theme=theme;string[] targets={"https://example.com/","app.exe",Environment.GetFolderPath(Environment.SpecialFolder.Windows),"document.pdf"};
+        var settings=DemoSettings();settings.Theme=theme;string[] targets={"https://example.com/","app.exe",Environment.GetFolderPath(Environment.SpecialFolder.Windows),"document.pdf"};
         settings.Items=Enumerable.Range(0,count).Select(i=>new LaunchItem{Name="选项",Target=targets[i%targets.Length]}).ToList();
         int size=editor?452:632,pixelSize=size*2;
         var surface=new RadialSurface{EditorMode=editor,Width=size,Height=size};surface.Configure(settings);surface.Measure(new Size(size,size));surface.Arrange(new Rect(0,0,size,size));surface.UpdateLayout();
@@ -300,6 +303,7 @@ internal static partial class SelfTests
         var root=Path.Combine(Path.GetTempPath(),"OrbitLauncherTests-"+Guid.NewGuid());
         try
         {
+            Directory.CreateDirectory(root);VerifyWebsiteIconModel(root,Check);
             VerifySelectionModel(Check);
             VerifyThemeModel(Check);
             for(int count=1;count<=16;count++)
@@ -315,7 +319,7 @@ internal static partial class SelfTests
             Check(ItemAppearance.Classify("C:\\Apps\\TEST.EXE")==LaunchKind.Application && ItemAppearance.Classify("app.lnk")==LaunchKind.Application,"exe 和快捷方式使用应用配色");
             Check(ItemAppearance.Classify(Environment.GetFolderPath(Environment.SpecialFolder.Windows))==LaunchKind.Folder,"实际文件夹使用文件夹配色");
             Check(ItemAppearance.Classify("document.pdf")==LaunchKind.File,"普通文件使用文件配色");
-            var protection=Settings.Defaults();
+            var protection=DemoSettings();
             Check(protection.GameModeEnabled && protection.PauseInFullscreen,"默认启用游戏保护和全屏补充保护");
             Check(ForegroundGuard.Decide(protection,"League of Legends.exe",false)!=null,"窗口模式 LOL 按进程屏蔽");
             Check(ForegroundGuard.Decide(protection,"LEAGUECLIENTUX.EXE",false)!=null,"进程匹配忽略大小写");
@@ -364,7 +368,7 @@ internal static partial class SelfTests
             g.Down(0,0,true);g.Cancel();Check(g.Up().Action==GestureAction.None,"候选期间取消不补点击");
             g.Down(0,0,true);g.Move(20,0,12);Check(g.Reset().Action==GestureAction.Cancel && g.Phase==GesturePhase.Idle,"切换桌面重置手势");
             Check(g.Down(0,0,true).Block && g.Phase==GesturePhase.Pending,"重置后下一次手势可触发");g.Cancel();g.Up();
-            Directory.CreateDirectory(root); var store=new ConfigStore(Path.Combine(root,"settings.json")); var config=Settings.Defaults();
+            Directory.CreateDirectory(root); var store=new ConfigStore(Path.Combine(root,"settings.json")); var config=DemoSettings();
             config.Diameter=500; config.Items[0].Name="中文配置回读"; config.Items[0].Arguments="--hello \"中文\""; config.Modifier="LeftShift";
             store.Save(config); var restored=store.Load();
             Check(restored.Diameter==500 && restored.Items[0].Name=="中文配置回读" && restored.Items[0].Arguments=="--hello \"中文\"" && restored.Modifier=="LeftShift","中文、参数、尺寸、修饰键配置往返");
@@ -374,7 +378,7 @@ internal static partial class SelfTests
             config.Diameter=-10;config.CancelRadius=999;config.DragThreshold=0;config.Normalize();
             Check(config.Diameter==300 && config.CancelRadius==75 && config.DragThreshold==4,"非法配置数值归一化");
             File.WriteAllText(store.FilePath,"{bad json"); var fallback=store.Load();
-            Check(fallback.Items.Count==8 && File.Exists(store.FilePath+".broken"),"损坏配置保留并恢复默认");
+            Check(fallback.Items.Count==0 && File.Exists(store.FilePath+".broken"),"损坏配置保留并恢复默认");
             Check(Launcher.Validate(new LaunchItem { Target=Path.Combine(root,"absent.exe") })!=null,"不存在的路径不启动");
             Check(Launcher.Validate(new LaunchItem { Target=root })==null,"文件夹验证");
             Check(Launcher.Validate(new LaunchItem { Target="https://example.com/" })==null,"https 网址验证");

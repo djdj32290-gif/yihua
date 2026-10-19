@@ -11,6 +11,8 @@ public static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if(Array.Exists(args,a=>a.StartsWith("--verify-",StringComparison.Ordinal) || a=="--self-test" || a=="--benchmark-render" || a=="--export-preview"))WebsiteIcons.AutomaticLoading=false;
+        if(Array.IndexOf(args,"--verify-web-icons")>=0)return SelfTests.VerifyWebsiteIconNetwork(args);
         if(Array.IndexOf(args,"--self-test")>=0) return SelfTests.Run(args);
         if(Array.IndexOf(args,"--verify-services")>=0) return SelfTests.VerifyServices(args);
         if(Array.IndexOf(args,"--export-preview")>=0) return SelfTests.ExportPreview(args);

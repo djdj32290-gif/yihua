@@ -20,7 +20,7 @@ public partial class SettingsWindow : Window
     Settings Config=>controller.Config;
     public SettingsWindow(AppController controller)
     {
-        this.controller=controller;InitializeComponent();Title="一划 1.3.3 · 设置";
+        this.controller=controller;InitializeComponent();Title="一划 1.3.4 · 设置";
         saveTimer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(300)};saveTimer.Tick+=(_,_)=>Flush();
         statusTimer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(500)};statusTimer.Tick+=(_,_)=>RefreshRuntime();
         SizeSlider.Value=Config.Diameter;CancelSlider.Value=Config.CancelRadius;ThresholdSlider.Value=Config.DragThreshold;

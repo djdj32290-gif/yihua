@@ -55,6 +55,7 @@ internal static class Icons
     public static ImageSource For(string target)
     {
         target=Launcher.Expand(target);
+        if(Launcher.IsUrl(target) && WebsiteIcons.For(target) is {} websiteIcon)return websiteIcon;
         if(cache.TryGetValue(target,out var cached)) return cached;
         ImageSource? image=null;
         try

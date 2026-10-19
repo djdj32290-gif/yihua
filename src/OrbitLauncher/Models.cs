@@ -41,16 +41,7 @@ public sealed class Settings
         Items = (Items ?? new()).Where(x => x != null).Take(16).ToList();
         foreach (var i in Items) { i.Name ??= "新选项"; i.Target ??= ""; i.Arguments ??= ""; i.WorkingDirectory ??= ""; }
     }
-    public static Settings Defaults() => new() { Items = new() {
-        new() { Name="文件资源管理器", Target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe") },
-        new() { Name="记事本", Target=Path.Combine(Environment.SystemDirectory, "notepad.exe") },
-        new() { Name="计算器", Target=Path.Combine(Environment.SystemDirectory, "calc.exe") },
-        new() { Name="下载", Target=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads") },
-        new() { Name="文档", Target=Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) },
-        new() { Name="图片", Target=Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) },
-        new() { Name="桌面", Target=Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) },
-        new() { Name="用户文件夹", Target=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) }
-    }};
+    public static Settings Defaults() => new();
 }
 public sealed class ConfigStore
 {

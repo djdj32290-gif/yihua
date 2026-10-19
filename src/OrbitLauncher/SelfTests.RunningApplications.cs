@@ -53,11 +53,11 @@ internal static partial class SelfTests
                 {
                     Themes.Apply(palette.Id);picker.UpdateLayout();
                     check(((SolidColorBrush)picker.Background).Color==palette.Brush("Window").Color && ((SolidColorBrush)list.Background).Color==palette.Brush("List").Color,$"{palette.Id} RunningPickerFollowsTheme");
-                    SaveVisual(picker,Path.Combine(folder,$"运行程序-{palette.Id}-1.3.3.png"));
+                    SaveVisual(picker,Path.Combine(folder,$"运行程序-{palette.Id}-1.3.4.png"));
                 }
                 Themes.Apply(theme);picker.Width=picker.MinWidth;picker.Height=picker.MinHeight;picker.UpdateLayout();
                 check(use.TranslatePoint(new Point(use.ActualWidth,use.ActualHeight),picker).X<=picker.ActualWidth && use.TranslatePoint(new Point(0,use.ActualHeight),picker).Y<=picker.ActualHeight,"RunningPickerActionsFitMinimumWindow");
-                SaveVisual(picker,Path.Combine(folder,"运行程序-最小窗口-1.3.3.png"));
+                SaveVisual(picker,Path.Combine(folder,"运行程序-最小窗口-1.3.4.png"));
                 use.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             });
             check(selected!=null && target.Text==selected.Path && name.Text==selected.Name && work.Text==Path.GetDirectoryName(selected.Path),"RunningApplicationFillsNamePathAndWorkingDirectory");
