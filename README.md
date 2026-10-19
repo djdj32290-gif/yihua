@@ -4,6 +4,12 @@
 
 Windows 托盘轮盘快捷启动器，使用 C#、.NET 10、WPF 与 Win32 输入钩子。支持 Windows 10 / 11 x64，自包含便携版无需安装 .NET，不显示控制台窗口。
 
+## 下载即用
+
+打开 **[最新发行版 Releases](https://github.com/djdj32290-gif/yihua/releases/latest)**，在 **Assets（资源）** 中下载名称含 **portable-win-x64** 的便携版 ZIP（本版为 `yihua-1.3.4-portable-win-x64.zip`），完整解压后运行文件夹内的 **一划.exe**。其它依赖文件也需保留。
+
+仓库绿色 Code 按钮下的 Download ZIP，以及发行版中的 Source code，都是开发用源码，不是可直接运行的便携程序。
+
 ## 界面预览
 
 | 轮盘布局 · 曜石黑 | 手势与外观 · 云雾白 |
